@@ -1,29 +1,31 @@
-import { NativeModules, Platform } from 'react-native';
+import type { FC } from 'react';
+import React, { Fragment, useLayoutEffect } from 'react';
+import { type ImageProps, Image } from 'react-native';
+import { useConvertTOWebp } from './api_hooks/convertToWebP/useContvertToWebp';
 
-const LINKING_ERROR =
-  `The package 'react-native-webp-converter' doesn't seem to be linked. Make sure: \n\n` +
-  Platform.select({ ios: "- You have run 'pod install'\n", default: '' }) +
-  '- You rebuilt the app after installing the package\n' +
-  '- You are not using Expo Go\n';
+const WebpImage: FC<ImageProps> = ({ src, source, ...props }) => {
+  const { convertFunction, convertedImage } = useConvertTOWebp();
+  useLayoutEffect(() => {
+    if (src) {
+      convertFunction(src);
+    } else if (
+      source &&
+      typeof source === 'object' &&
+      'uri' in source &&
+      source.uri
+    ) {
+      convertFunction(source.uri);
+    } else if (typeof source === 'number') {
+      convertFunction(Image.resolveAssetSource(source).uri);
+    }
+  }, [convertFunction, source, src]);
+  return (
+    <Fragment>
+      {convertedImage ? (
+        <Image source={{ uri: convertedImage }} {...props} />
+      ) : null}
+    </Fragment>
+  );
+};
 
-// @ts-expect-error
-const isTurboModuleEnabled = global.__turboModuleProxy != null;
-
-const WebpConverterModule = isTurboModuleEnabled
-  ? require('./NativeWebpConverter').default
-  : NativeModules.WebpConverter;
-
-const WebpConverter = WebpConverterModule
-  ? WebpConverterModule
-  : new Proxy(
-      {},
-      {
-        get() {
-          throw new Error(LINKING_ERROR);
-        },
-      }
-    );
-
-export function multiply(a: number, b: number): Promise<number> {
-  return WebpConverter.multiply(a, b);
-}
+export default WebpImage;
